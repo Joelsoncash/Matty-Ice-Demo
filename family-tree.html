@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Tree</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            overflow-x: hidden;
+        }
+
+        .tree {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .generation {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            gap: 20px;
+            position: relative;
+        }
+
+        .member {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 250px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .member:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .member.zooming {
+            position: fixed;
+            z-index: 1000;
+            transition: all 0.8s ease;
+        }
+
+        .member img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+            object-fit: cover;
+            border: 4px solid #667eea;
+        }
+
+        .member h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .member p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .connector {
+            width: 2px;
+            height: 40px;
+            background: white;
+            margin: 0 auto;
+            margin-bottom: -20px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0);
+            pointer-events: none;
+            transition: background 0.8s ease;
+            z-index: 999;
+        }
+
+        .overlay.active {
+            background: rgba(0,0,0,0.7);
+            pointer-events: auto;
+        }
+
+        .add-member-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: background-color 0.3s ease;
+        }
+
+        .add-member-btn:hover {
+            background: #5a6fd6;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        .modal-buttons .cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .modal-buttons .save {
+            background: #667eea;
+            color: white;
+        }
+
+        .modal-buttons button:hover {
+            opacity: 0.9;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 40px;
+            border-radius: 10px;
+            z-index: 1001;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .generation {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .member {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .modal {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+    <div class="loading">Adding member...</div>
+    <div class="tree">
+        <h1>Indev Family Tree</h1>
+        
+        <!-- Generation 1 -->
+        <div class="generation">
+            <div class="member" data-profile="profiles/indev.html">
+                <img src="https://via.placeholder.com/120" alt="Indev">
+                <h3>Indev</h3>
+                <p>The Original Creator</p>
+                <p>Known for pioneering innovation</p>
+            </div>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Generation 2 -->
+        <div class="generation">
+            <div class="member" data-profile="profiles/alpha.html">
+                <img src="https://via.placeholder.com/120" alt="Alpha">
+                <h3>Alpha</h3>
+                <p>First Generation</p>
+                <p>Experimental Phase</p>
+            </div>
+            <div class="member" data-profile="profiles/beta.html">
+                <img src="https://via.placeholder.com/120" alt="Beta">
+                <h3>Beta</h3>
+                <p>First Generation</p>
+                <p>Testing Phase</p>
+            </div>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Generation 3 -->
+        <div class="generation">
+            <div class="member" data-profile="profiles/v1.html">
+                <img src="https://via.placeholder.com/120" alt="Version 1.0">
+                <h3>Version 1.0</h3>
+                <p>Second Generation</p>
+                <p>First Stable Release</p>
+            </div>
+            <div class="member" data-profile="profiles/v2.html">
+                <img src="https://via.placeholder.com/120" alt="Version 2.0">
+                <h3>Version 2.0</h3>
+                <p>Second Generation</p>
+                <p>Major Enhancement</p>
+            </div>
+            <div class="member" data-profile="profiles/v3.html">
+                <img src="https://via.placeholder.com/120" alt="Version 3.0">
+                <h3>Version 3.0</h3>
+                <p>Second Generation</p>
+                <p>Revolutionary Update</p>
+            </div>
+        </div>
+
+        <button class="add-member-btn">Add Family Member</button>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div class="modal" id="addMemberModal">
+        <h2>Add New Family Member</h2>
+        <form id="addMemberForm">
+            <div class="form-group">
+                <label for="memberName">Name</label>
+                <input type="text" id="memberName" required>
+            </div>
+            <div class="form-group">
+                <label for="memberTitle">Title</label>
+                <input type="text" id="memberTitle" required>
+            </div>
+            <div class="form-group">
+                <label for="memberGeneration">Generation</label>
+                <select id="memberGeneration" required>
+                    <option value="1">First Generation</option>
+                    <option value="2">Second Generation</option>
+                    <option value="3">Third Generation</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="memberDescription">Description</label>
+                <textarea id="memberDescription" required></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="cancel">Cancel</button>
+                <button type="submit" class="save">Save Member</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Member click and zoom functionality
+        function addMemberClickHandler(member) {
+            member.addEventListener('click', function() {
+                const profileUrl = this.getAttribute('data-profile');
+                const rect = this.getBoundingClientRect();
+                const overlay = document.querySelector('.overlay');
+                
+                // Store original position
+                this.style.top = rect.top + 'px';
+                this.style.left = rect.left + 'px';
+                this.style.width = rect.width + 'px';
+                
+                // Add zooming class
+                this.classList.add('zooming');
+                overlay.classList.add('active');
+                
+                // Calculate center position
+                const centerX = (window.innerWidth - rect.width) / 2;
+                const centerY = (window.innerHeight - rect.height) / 2;
+                
+                // Zoom animation
+                requestAnimationFrame(() => {
+                    this.style.transform = 'scale(1.5)';
+                    this.style.top = centerY + 'px';
+                    this.style.left = centerX + 'px';
+                    
+                    // Redirect after zoom animation
+                    setTimeout(() => {
+                        window.location.href = profileUrl;
+                    }, 800);
+                });
+            });
+        }
+
+        document.querySelectorAll('.member').forEach(member => {
+            addMemberClickHandler(member);
+        });
+
+        // Add Member Modal Functionality
+        const addMemberBtn = document.querySelector('.add-member-btn');
+        const modal = document.getElementById('addMemberModal');
+        const overlay = document.querySelector('.overlay');
+        const cancelBtn = modal.querySelector('.cancel');
+        const addMemberForm = document.getElementById('addMemberForm');
+        const loading = document.querySelector('.loading');
+
+        addMemberBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+            overlay.classList.add('active');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+            overlay.classList.remove('active');
+            addMemberForm.reset();
+        });
+
+        overlay.addEventListener('click', () => {
+            if (modal.classList.contains('active')) {
+                modal.classList.remove('active');
+                overlay.classList.remove('active');
+                addMemberForm.reset();
+            }
+        });
+
+        addMemberForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('memberName').value;
+            const title = document.getElementById('memberTitle').value;
+            const generation = document.getElementById('memberGeneration').value;
+            const description = document.getElementById('memberDescription').value;
+
+            // Show loading state
+            loading.classList.add('active');
+            modal.classList.remove('active');
+
+            try {
+                // Send data to PHP endpoint
+                const response = await fetch('add-member.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name,
+                        title,
+                        description
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Create new member element
+                    const newMember = document.createElement('div');
+                    newMember.className = 'member';
+                    newMember.setAttribute('data-profile', data.profileUrl);
+                    newMember.innerHTML = `
+                        <img src="https://via.placeholder.com/120" alt="${name}">
+                        <h3>${name}</h3>
+                        <p>${title}</p>
+                        <p>${description}</p>
+                    `;
+
+                    // Add to appropriate generation
+                    const generations = document.querySelectorAll('.generation');
+                    generations[generation - 1].appendChild(newMember);
+
+                    // Add click handler to new member
+                    addMemberClickHandler(newMember);
+
+                    // Reset form and close modal
+                    addMemberForm.reset();
+                } else {
+                    throw new Error(data.error || 'Failed to add member');
+                }
+            } catch (error) {
+                console.error('Error adding member:', error);
+                alert('There was an error adding the new member. Please try again.');
+            } finally {
+                // Hide loading state
+                loading.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
